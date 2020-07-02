@@ -3,6 +3,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/thomasdomingos/terraform-state-server/config"
@@ -11,6 +12,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 )
 
 var registryPath string
@@ -87,6 +90,18 @@ func getState(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func copy(src, dst string) {
+	// Read all content of src to data
+	data, err := ioutil.ReadFile(src)
+	if err != nil {
+		log.Fatal(err)
+	} // Write data to dst
+	err = ioutil.WriteFile(dst, data, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
 func postState(w http.ResponseWriter, r *http.Request) {
 	log.Println("HIT: postState")
 	vars := mux.Vars(r)
@@ -95,18 +110,18 @@ func postState(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
+	// Copy current state to keep history
+	copy(filepath.Join(registryPath, stateName, "state"), filepath.Join(registryPath, stateName, strconv.FormatInt(time.Now().Unix(), 10)))
+
 	// Read content of the POST data, and write it to the corresponding state file
 	reqBody, err := ioutil.ReadAll(r.Body)
-	file, err := os.OpenFile(filepath.Join(registryPath, stateName, "state"), os.O_WRONLY, 0644)
+	if !json.Valid(reqBody) {
+		log.Fatal(errors.New("invalid json data: aborting"))
+	}
+	err = ioutil.WriteFile(filepath.Join(registryPath, stateName, "state"), reqBody, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer file.Close()
-	n, err := file.Write(reqBody)
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println(n, "bytes written to file")
 }
 
 // Serve configures the routes and start the server using ListenAndServe
