@@ -2,3 +2,5 @@ server:
   port: 8080
 registry:
   path: ./test
+database:
+  path: ./test.db

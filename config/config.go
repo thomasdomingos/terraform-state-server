@@ -20,6 +20,9 @@ type Config struct {
 	Registry struct {
 		Path string `yaml:"path",envconfig:"REGISTRY_PATH"`
 	} `yaml:"registry"`
+	Database struct {
+		Path string `yaml:"path",envconfig:"REGISTRY_PATH"`
+	} `yaml:"database"`
 }
 
 func processError(err error) {
