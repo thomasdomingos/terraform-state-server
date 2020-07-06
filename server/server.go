@@ -11,9 +11,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"path/filepath"
-	"strconv"
-	"time"
 )
 
 var registryPath string
@@ -49,11 +46,14 @@ func getState(w http.ResponseWriter, r *http.Request) {
 	stateName := vars["id"]
 	b, err := manager.GetState(stateName)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		w.WriteHeader(http.StatusNotFound)
+		return
 	}
 	_, err = w.Write(b)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
 
@@ -69,27 +69,26 @@ func copy(src, dst string) {
 	}
 }
 
-func postState(w http.ResponseWriter, r *http.Request) {
-	log.Println("HIT: postState")
+func putState(w http.ResponseWriter, r *http.Request) {
+	log.Println("HIT: putState")
 	vars := mux.Vars(r)
 	stateName := vars["id"]
-	/*
-		if err := assertState(stateName); err != nil {
-			log.Fatal(err)
-		}
-	*/
 
-	// Copy current state to keep history
-	copy(filepath.Join(registryPath, stateName, "state"), filepath.Join(registryPath, stateName, strconv.FormatInt(time.Now().Unix(), 10)))
-
-	// Read content of the POST data, and write it to the corresponding state file
+	// Read content of the POST data (verify correctness of json)
 	reqBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	if !json.Valid(reqBody) {
+		w.WriteHeader(http.StatusBadRequest)
 		log.Fatal(errors.New("invalid json data: aborting"))
 	}
-	err = ioutil.WriteFile(filepath.Join(registryPath, stateName, "state"), reqBody, 0644)
+	// FInally write state
+	err = manager.PutState(stateName, reqBody)
 	if err != nil {
-		log.Fatal(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -101,7 +100,7 @@ func Serve(cfg config.Config, mgr states.Mgr) error {
 	router.HandleFunc("/", homepage)
 	router.HandleFunc("/states", getStates).Methods("GET")
 	router.HandleFunc("/state/{id}", getState).Methods("GET")
-	router.HandleFunc("/state/{id}", postState).Methods("POST")
+	router.HandleFunc("/state/{id}", putState).Methods("POST")
 	registryPath = cfg.Registry.Path
 	return http.ListenAndServe(fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port), router)
 }

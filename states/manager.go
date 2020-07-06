@@ -2,12 +2,12 @@ package states
 
 import (
 	"database/sql"
+	"errors"
+	"github.com/thomasdomingos/terraform-state-server/config"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
-
-	"github.com/thomasdomingos/terraform-state-server/config"
 )
 
 type Mgr struct {
@@ -50,9 +50,12 @@ func (m *Mgr) Close() error {
 }
 
 func (m *Mgr) GetState(name string) ([]byte, error) {
-	id, err := getState(m.db, name)
+	id, exists, err := getState(m.db, name)
 	if err != nil {
 		return nil, err
+	}
+	if !exists {
+		return nil, errors.New("state does not exists")
 	}
 	// Verify the State directory exists
 	if err := assertDirExists(filepath.Join(m.cfg.Registry.Path, name)); err != nil {
@@ -69,6 +72,36 @@ func (m *Mgr) GetState(name string) ([]byte, error) {
 		return nil, err
 	}
 	return b, nil
+}
+
+func (m *Mgr) PutState(name string, content []byte) error {
+	// Verify the State directory exists
+	if err := assertDirExists(filepath.Join(m.cfg.Registry.Path, name)); err != nil {
+		return err
+	}
+	// Try to recover current state
+	id, exists, err := getState(m.db, name)
+	if err != nil {
+		return err
+	}
+	var state *State
+	// Create state as next or new depending of predecessor existence
+	if !exists {
+		state = NewState("name", content)
+	} else {
+		oldState := State{Name: name, Previous: id}
+		state = NextState(oldState, content)
+	}
+	if err := insertState(m.db, *state); err != nil {
+		return err
+	}
+
+	// Write state content to file
+	err = ioutil.WriteFile(filepath.Join(m.cfg.Registry.Path, name, id), content, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func assertDirExists(path string) error {

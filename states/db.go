@@ -2,10 +2,9 @@ package states
 
 import (
 	"database/sql"
+	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
 	"log"
 	"os"
-
-	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
 )
 
 func initDB(path string) (*sql.DB, error) {
@@ -34,8 +33,7 @@ func createTables(db *sql.DB) {
     "id" integer NOT NULL PRIMARY KEY AUTOINCREMENT,
     "name" TEXT,
     "checksum" TEXT,
-    "previous" TEXT,
-    CONSTRAINT state_unique UNIQUE (name, checksum)
+    "previous" TEXT
   );` // SQL Statement for Create Table
 
 	log.Println("Create state table...")
@@ -64,7 +62,7 @@ func insertState(db *sql.DB, state State) error {
 	return nil
 }
 
-func getState(db *sql.DB, name string) (string, error) {
+func getState(db *sql.DB, name string) (string, bool, error) {
 	log.Println("Searching for", name, "state")
 	row := db.QueryRow("SELECT * FROM state WHERE name=? ORDER BY id DESC LIMIT 1", name)
 
@@ -72,12 +70,16 @@ func getState(db *sql.DB, name string) (string, error) {
 	var getname string
 	var checksum string
 	var previous string
-	if err := row.Scan(&id, &getname, &checksum, &previous); err != nil {
-		log.Println("error", err.Error())
-		return "", err
+	exists := true
+	err := row.Scan(&id, &getname, &checksum, &previous)
+	switch {
+	case err == sql.ErrNoRows:
+		exists = false
+	case err != nil:
+		return "", false, err
 	}
 	log.Println("State: ", getname, " ", checksum)
-	return checksum, nil
+	return checksum, exists, nil
 }
 
 func getAllStates(db *sql.DB) []string {

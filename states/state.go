@@ -12,11 +12,11 @@ type State struct {
 	Name     string
 	Previous string
 	Checksum string
-	content  string
+	content  []byte
 }
 
 func (s *State) computeChecksum() error {
-	if s.Name == "" || s.content == "" {
+	if s.Name == "" || s.content == nil {
 		return errors.New("incomplete state, cannot compute checksum")
 	}
 	if s.Checksum != "" {
@@ -38,7 +38,7 @@ func (s State) Verify() bool {
 	return hex.EncodeToString(h.Sum(nil)) == s.Checksum
 }
 
-func NewState(name, content string) *State {
+func NewState(name string, content []byte) *State {
 	state := new(State)
 	state.Name = name
 	state.Previous = strings.Repeat("0", sha256.BlockSize)
@@ -50,7 +50,7 @@ func NewState(name, content string) *State {
 	return state
 }
 
-func NextState(state State, newcontent string) *State {
+func NextState(state State, newcontent []byte) *State {
 	newstate := new(State)
 	newstate.Name = state.Name
 	newstate.Previous = state.Checksum
