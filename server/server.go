@@ -7,45 +7,21 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/thomasdomingos/terraform-state-server/config"
+	"github.com/thomasdomingos/terraform-state-server/states"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"time"
 )
 
 var registryPath string
+var manager states.Mgr
 
 func homepage(w http.ResponseWriter, r *http.Request) {
 	log.Println("HIT: homepage")
 	fmt.Fprintf(w, "Welcome to Terraform HTTP State Server!")
-}
-
-func assertState(stateName string) error {
-	// Test directory containing state
-	if _, err := os.Stat(filepath.Join(registryPath, stateName)); err != nil {
-		// Create directory that will contain state file(s)
-		if os.IsNotExist(err) {
-			log.Println("Directory does not not exist, creating it")
-			if err := os.MkdirAll(filepath.Join(registryPath, stateName), os.ModePerm); err != nil {
-				return err
-			}
-		}
-	}
-	// Create an empty file when state does not exists
-	if _, err := os.Stat(filepath.Join(registryPath, stateName, "state")); err != nil {
-		if os.IsNotExist(err) {
-			log.Println("Creating empty state file")
-			file, err := os.OpenFile(filepath.Join(registryPath, stateName, "state"), os.O_RDONLY|os.O_CREATE, 0644)
-			defer file.Close()
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func getStates(w http.ResponseWriter, r *http.Request) {
@@ -71,16 +47,7 @@ func getState(w http.ResponseWriter, r *http.Request) {
 	log.Println("HIT: getState")
 	vars := mux.Vars(r)
 	stateName := vars["id"]
-	if err := assertState(stateName); err != nil {
-		log.Fatal(err)
-	}
-	// Read state file and return its content
-	file, err := os.Open(filepath.Join(registryPath, stateName, "state"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-	b, err := ioutil.ReadAll(file)
+	b, err := manager.GetState(stateName)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -106,9 +73,11 @@ func postState(w http.ResponseWriter, r *http.Request) {
 	log.Println("HIT: postState")
 	vars := mux.Vars(r)
 	stateName := vars["id"]
-	if err := assertState(stateName); err != nil {
-		log.Fatal(err)
-	}
+	/*
+		if err := assertState(stateName); err != nil {
+			log.Fatal(err)
+		}
+	*/
 
 	// Copy current state to keep history
 	copy(filepath.Join(registryPath, stateName, "state"), filepath.Join(registryPath, stateName, strconv.FormatInt(time.Now().Unix(), 10)))
@@ -125,8 +94,9 @@ func postState(w http.ResponseWriter, r *http.Request) {
 }
 
 // Serve configures the routes and start the server using ListenAndServe
-func Serve(cfg config.Config) error {
+func Serve(cfg config.Config, mgr states.Mgr) error {
 	log.Println("Serving Terraform HTTP State Server")
+	manager = mgr
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", homepage)
 	router.HandleFunc("/states", getStates).Methods("GET")
