@@ -1,6 +1,6 @@
 server:
   port: 8080
 registry:
-  path: ./registry
+  path: /var/terraform-server-state/registry
 database:
-  path: ./registry/test.db
+  path: /var/terraform-server-state/base.db
