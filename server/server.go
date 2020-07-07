@@ -77,16 +77,19 @@ func putState(w http.ResponseWriter, r *http.Request) {
 	// Read content of the POST data (verify correctness of json)
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
+		log.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	if !json.Valid(reqBody) {
+		log.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
 		log.Fatal(errors.New("invalid json data: aborting"))
 	}
 	// FInally write state
 	err = manager.PutState(stateName, reqBody)
 	if err != nil {
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
