@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 
 	"github.com/thomasdomingos/terraform-state-server/config"
@@ -11,8 +12,13 @@ import (
 var cfg config.Config
 
 func main() {
+	var configPath string
+
+	flag.StringVar(&configPath, "configpath", "/etc/config.yaml", "Configuration file")
+	flag.Parse()
+
 	// Load configuration
-	if err := config.InitConfig("./config.yaml", &cfg); err != nil {
+	if err := config.InitConfig(configPath, &cfg); err != nil {
 		log.Fatal(err)
 	}
 
