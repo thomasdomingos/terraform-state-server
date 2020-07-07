@@ -102,3 +102,18 @@ func getAllStates(db *sql.DB) []string {
 	}
 	return names
 }
+
+func getHistory(db *sql.DB, name string) []string {
+	log.Println("get history for state", name)
+	rows, _ := db.Query("SELECT checksum FROM state WHERE name=? ORDER BY id DESC", name)
+	defer rows.Close()
+	layers := make([]string, 0)
+	for rows.Next() {
+		var checksum string
+		if err := rows.Scan(&checksum); err != nil {
+			log.Fatal(err)
+		}
+		layers = append(layers, checksum)
+	}
+	return layers
+}

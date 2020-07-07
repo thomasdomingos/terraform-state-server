@@ -24,19 +24,16 @@ func homepage(w http.ResponseWriter, r *http.Request) {
 func getStates(w http.ResponseWriter, r *http.Request) {
 	log.Println("HIT: getStates")
 
-	states, err := ioutil.ReadDir(registryPath)
-	if err != nil {
-		log.Fatal(err)
-	}
 	type State struct {
-		Name string `json:"Name"`
+		Name   string   `json:"name"`
+		Layers []string `json:"history"`
 	}
 	States := make([]State, 0)
-	for _, f := range states {
-		if f.IsDir() {
-			States = append(States, State{f.Name()})
-		}
+	for _, name := range manager.GetStates() {
+		history := manager.GetHistory(name)
+		States = append(States, State{Name: name, Layers: history})
 	}
+	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(States)
 }
 

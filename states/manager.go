@@ -62,17 +62,7 @@ func (m *Mgr) GetState(name string) ([]byte, error) {
 	if err := assertDirExists(filepath.Join(m.cfg.Registry.Path, name)); err != nil {
 		return nil, err
 	}
-	// Read state file and return its content
-	file, err := os.Open(filepath.Join(m.cfg.Registry.Path, name, id))
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	b, err := ioutil.ReadAll(file)
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
+	return m.GetContent(name, id)
 }
 
 func (m *Mgr) PutState(name string, content []byte) error {
@@ -90,7 +80,7 @@ func (m *Mgr) PutState(name string, content []byte) error {
 		}
 		state = NewState(name, content)
 	} else {
-		oldState := State{Name: name, Previous: id}
+		oldState := State{Name: name, Checksum: id}
 		state = NextState(oldState, content)
 	}
 
@@ -106,6 +96,28 @@ func (m *Mgr) PutState(name string, content []byte) error {
 		return err
 	}
 	return nil
+}
+
+func (m *Mgr) GetStates() []string {
+	return getAllStates(m.db)
+}
+
+func (m *Mgr) GetHistory(name string) []string {
+	return getHistory(m.db, name)
+}
+
+func (m *Mgr) GetContent(name, id string) ([]byte, error) {
+	// Read state file and return its content
+	file, err := os.Open(filepath.Join(m.cfg.Registry.Path, name, id))
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	b, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
 
 func assertDirExists(path string) error {
