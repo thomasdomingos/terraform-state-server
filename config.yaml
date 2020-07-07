@@ -1,6 +1,6 @@
 server:
   port: 8080
 registry:
-  path: ./test
+  path: ./registry
 database:
-  path: ./test.db
+  path: ./registry/test.db

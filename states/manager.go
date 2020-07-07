@@ -120,6 +120,29 @@ func (m *Mgr) GetContent(name, id string) ([]byte, error) {
 	return b, nil
 }
 
+func (m *Mgr) LockState(name string) error {
+	// get lock state from DB
+	isLocked, err := getLockState(m.db, name)
+	if err != nil {
+		return err
+	}
+	if isLocked {
+		return AlreadyLocked
+	}
+	err = setLockState(m.db, name, true)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *Mgr) UnlockState(name string) error {
+	err := setLockState(m.db, name, false)
+	return err
+}
+
+var AlreadyLocked = errors.New("state is already locked")
+
 func assertDirExists(path string) error {
 	// Test directory containing state
 	if _, err := os.Stat(path); err != nil {

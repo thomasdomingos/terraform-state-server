@@ -5,6 +5,7 @@ import (
 	_ "github.com/mattn/go-sqlite3" // Import go-sqlite3 library
 	"log"
 	"os"
+	"strconv"
 )
 
 func initDB(path string) (*sql.DB, error) {
@@ -42,7 +43,61 @@ func createTables(db *sql.DB) {
 		log.Fatal(err.Error())
 	}
 	statement.Exec() // Execute SQL Statements
-	log.Println("done creating table")
+	log.Println("done creating state table")
+
+	createLockTableSQL := `CREATE TABLE IF NOT EXISTS lock (
+    "name" TEXT NOT NULL PRIMARY KEY,
+    "lock" INTEGER
+  );` // SQL Statement for Create Table
+
+	log.Println("create lock table...")
+	statement, err = db.Prepare(createLockTableSQL) // Prepare SQL Statement
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	statement.Exec() // Execute SQL Statements
+	log.Println("done creating lock table")
+}
+
+func bool2int(b bool) int {
+	if b {
+		return 1
+	} else {
+		return 0
+	}
+}
+
+func setLockState(db *sql.DB, name string, lock bool) error {
+	log.Println("setting lock state to", strconv.FormatBool(lock))
+	setLockStateSQL := `INSERT INTO lock(name, lock) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET lock=?`
+	statement, err := db.Prepare(setLockStateSQL) // Prepare statement. This is good to avoid SQL injections
+	if err != nil {
+		log.Println("error :", err.Error())
+		return err
+	}
+	_, err = statement.Exec(name, bool2int(lock), bool2int(lock))
+	if err != nil {
+		log.Println("error :", err.Error())
+		return err
+	}
+	log.Println("done setting lock state")
+	return nil
+}
+
+func getLockState(db *sql.DB, name string) (bool, error) {
+	log.Println("searching lock state for", name)
+	row := db.QueryRow("SELECT lock FROM lock WHERE name=?", name)
+	// Parse the resulting row
+	var lock int
+	err := row.Scan(&lock)
+	switch {
+	case err == sql.ErrNoRows:
+		// the state does not exists so it is not locked
+		return false, nil
+	case err != nil:
+		return false, err
+	}
+	return lock != 0, nil
 }
 
 // We are passing db reference connection from main to our method with other parameters

@@ -59,7 +59,8 @@ func copy(src, dst string) {
 	data, err := ioutil.ReadFile(src)
 	if err != nil {
 		log.Fatal(err)
-	} // Write data to dst
+	}
+	// Write data to dst
 	err = ioutil.WriteFile(dst, data, 0644)
 	if err != nil {
 		log.Fatal(err)
@@ -83,13 +84,47 @@ func putState(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		log.Fatal(errors.New("invalid json data: aborting"))
 	}
-	// FInally write state
+	// Finally write state
 	err = manager.PutState(stateName, reqBody)
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+}
+
+func lockState(w http.ResponseWriter, r *http.Request) {
+	log.Println("HIT: lockState")
+	vars := mux.Vars(r)
+	stateName := vars["id"]
+
+	// Lock the state
+	err := manager.LockState(stateName)
+	switch {
+	case err == states.AlreadyLocked:
+		log.Println(err)
+		w.WriteHeader(http.StatusLocked)
+		return
+	case err != nil:
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func unlockState(w http.ResponseWriter, r *http.Request) {
+	log.Println("HIT: unlockState")
+	vars := mux.Vars(r)
+	stateName := vars["id"]
+
+	// Lock the state
+	err := manager.UnlockState(stateName)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 // Serve configures the routes and start the server using ListenAndServe
@@ -101,6 +136,8 @@ func Serve(cfg config.Config, mgr states.Mgr) error {
 	router.HandleFunc("/states", getStates).Methods("GET")
 	router.HandleFunc("/state/{id}", getState).Methods("GET")
 	router.HandleFunc("/state/{id}", putState).Methods("POST")
+	router.HandleFunc("/state/{id}", lockState).Methods("LOCK")
+	router.HandleFunc("/state/{id}", unlockState).Methods("UNLOCK")
 	registryPath = cfg.Registry.Path
 	return http.ListenAndServe(fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port), router)
 }
