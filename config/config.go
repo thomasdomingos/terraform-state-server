@@ -12,16 +12,11 @@ type Config struct {
 		Host string `yaml:"host",envconfig:"SERVER_HOST"`
 		Port string `yaml:"port",envconfig:"SERVER_PORT"`
 	} `yaml:"server"`
-	/*	Database struct {
-		Username string `yaml:"user", envconfig:"DB_USERNAME"`
-		Password string `yaml:"pass", envconfig:"DB_PASSWORD"`
-		Path string `yaml:"path", envconfig:"DB_PATH"`
-	} `yaml:"database"`*/
 	Registry struct {
 		Path string `yaml:"path",envconfig:"REGISTRY_PATH"`
 	} `yaml:"registry"`
 	Database struct {
-		Path string `yaml:"path",envconfig:"REGISTRY_PATH"`
+		Path string `yaml:"path",envconfig:"DATABASE_PATH"`
 	} `yaml:"database"`
 }
 
